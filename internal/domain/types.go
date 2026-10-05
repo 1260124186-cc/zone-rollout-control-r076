@@ -162,6 +162,18 @@ type PageMeta struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 }
 
+type SnapshotStamp struct {
+	Revision    uint64 `json:"revision"`
+	Plans       int    `json:"plans"`
+	Revisions   int    `json:"revisions"`
+	Nodes       int    `json:"nodes"`
+	Leases      int    `json:"leases"`
+	LeaseGroups int    `json:"lease_groups"`
+	Probes      int    `json:"probes"`
+	Assessments int    `json:"assessments"`
+	AuditEvents int    `json:"audit_events"`
+}
+
 type PlanPage struct {
 	Items []RolloutPlan `json:"items"`
 	Meta  PageMeta      `json:"meta"`

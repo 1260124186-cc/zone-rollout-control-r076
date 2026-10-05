@@ -45,5 +45,5 @@ func New(
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	s.routes(mux)
-	return s.recoverer(s.withRequestID(s.withLogging(mux)))
+	return s.recoverer(s.withRequestID(s.withSnapshotStamp(s.withLogging(mux))))
 }

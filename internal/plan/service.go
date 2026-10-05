@@ -180,6 +180,10 @@ func (s *Service) Get(ctx context.Context, planID string) (domain.RolloutPlan, e
 	return plan, err
 }
 
+func (s *Service) SnapshotStamp(ctx context.Context) (domain.SnapshotStamp, error) {
+	return s.store.SnapshotStamp(ctx)
+}
+
 func (s *Service) LatestRevision(
 	ctx context.Context,
 	planID string,

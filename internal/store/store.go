@@ -51,6 +51,29 @@ func (s *Store) Revision() uint64 {
 	return s.state.Revision
 }
 
+func (s *Store) SnapshotStamp(ctx context.Context) (domain.SnapshotStamp, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.SnapshotStamp{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if err := ctx.Err(); err != nil {
+		return domain.SnapshotStamp{}, err
+	}
+	state := s.state
+	return domain.SnapshotStamp{
+		Revision:    state.Revision,
+		Plans:       len(state.Plans),
+		Revisions:   len(state.Revisions),
+		Nodes:       len(state.Nodes),
+		Leases:      len(state.Leases),
+		LeaseGroups: len(state.LeaseGroups),
+		Probes:      len(state.Probes),
+		Assessments: len(state.Assessments),
+		AuditEvents: len(state.AuditEvents),
+	}, nil
+}
+
 func (s *Store) Read(ctx context.Context, fn func(*domain.State) error) error {
 	if err := ctx.Err(); err != nil {
 		return err

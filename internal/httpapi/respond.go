@@ -17,7 +17,8 @@ type successBody struct {
 }
 
 type responseMeta struct {
-	RequestID string `json:"request_id,omitempty"`
+	RequestID string                `json:"request_id,omitempty"`
+	Snapshot  *domain.SnapshotStamp `json:"snapshot,omitempty"`
 }
 
 type failureBody struct {
@@ -41,9 +42,13 @@ func decode(w http.ResponseWriter, r *http.Request, target any) error {
 }
 
 func sendData(w http.ResponseWriter, r *http.Request, status int, value any) {
+	meta := responseMeta{RequestID: requestID(r.Context())}
+	if stamp, ok := snapshotStamp(r.Context()); ok {
+		meta.Snapshot = &stamp
+	}
 	sendJSON(w, status, successBody{
 		Data: value,
-		Meta: responseMeta{RequestID: requestID(r.Context())},
+		Meta: meta,
 	})
 }
 
