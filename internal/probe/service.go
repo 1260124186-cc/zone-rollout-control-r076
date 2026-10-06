@@ -56,10 +56,21 @@ func (s *Service) Submit(
 				})
 			}
 			if existing.PayloadFingerprint != fingerprint {
-				return domain.NewError(domain.CodeIdempotencyConflict, "request key was reused with different probe content", map[string]any{
-					"lease_id":    leaseID,
-					"request_key": input.RequestKey,
-				})
+				return domain.IdempotencyConflict(
+					"request key was reused with different probe content",
+					input.RequestKey,
+					domain.ConflictEntityRef{
+						Kind:    "probe",
+						ID:      existing.ID,
+						PlanID:  existing.PlanID,
+						LeaseID: existing.LeaseID,
+					},
+					domain.RequestDigest{
+						Digest:     existing.PayloadFingerprint,
+						RecordedAt: existing.StoredAt,
+					},
+					domain.DiffProbeFields(existing, input),
+				)
 			}
 			result = existing
 			return nil

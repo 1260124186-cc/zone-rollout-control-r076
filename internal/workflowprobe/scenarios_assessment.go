@@ -3,6 +3,7 @@ package workflowprobe
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"solo-0014-zone-rollout-control/internal/domain"
 )
@@ -59,6 +60,50 @@ func runConsistencyAssessment() error {
 	}
 	if latest.ID != consistent.ID {
 		return ensure(false, "latest assessment does not match")
+	}
+
+	if _, err := enrollNode(harness, "resolver-assess-03", "west"); err != nil {
+		return err
+	}
+	extraGroup, err := allocate(harness, plan.ID, "assess-lease-0002", "west", 1)
+	if err != nil {
+		return err
+	}
+	if _, err := submitProbe(harness, extraGroup.LeaseIDs[0], "assess-probe-0003", true, revision.Serial, 12); err != nil {
+		return err
+	}
+	var conflicted domain.RolloutAssessment
+	err = harness.call(http.MethodPatch, "/v1/plans/"+plan.ID+"/assessments", domain.AssessmentInput{
+		RequestKey: "assess-request-0001",
+	}, &conflicted)
+	if err := expectFailure(err, http.StatusConflict, string(domain.CodeIdempotencyConflict)); err != nil {
+		return err
+	}
+	if err := expectConflictDetails(
+		err,
+		"assessment",
+		consistent.ID,
+		consistent.PayloadFingerprint,
+		consistent.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"probes",
+	); err != nil {
+		return err
+	}
+	var unchanged domain.RolloutAssessment
+	if err := harness.call(http.MethodGet, "/v1/plans/"+plan.ID+"/assessments/latest", nil, &unchanged); err != nil {
+		return err
+	}
+	if unchanged.ID != consistent.ID {
+		return ensure(false, "assessment conflict recorded a new assessment")
+	}
+	var expanded domain.RolloutAssessment
+	if err := harness.call(http.MethodPatch, "/v1/plans/"+plan.ID+"/assessments", domain.AssessmentInput{
+		RequestKey: "assess-request-0002",
+	}, &expanded); err != nil {
+		return err
+	}
+	if expanded.ProbeCount != 3 || expanded.Verdict != domain.VerdictConsistent {
+		return ensure(false, "assessment with a fresh key did not cover all probes")
 	}
 
 	reviewPlan, reviewRevision, err := createActivePlan(harness, "review.example", 4001, 1, 1, 20)

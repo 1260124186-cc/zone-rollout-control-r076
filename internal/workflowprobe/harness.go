@@ -106,8 +106,9 @@ func (h *harness) call(method string, path string, requestBody any, target any) 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		var failure struct {
 			Error struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
+				Code    string         `json:"code"`
+				Message string         `json:"message"`
+				Details map[string]any `json:"details"`
 			} `json:"error"`
 		}
 		if err := json.Unmarshal(body, &failure); err != nil {
@@ -117,6 +118,7 @@ func (h *harness) call(method string, path string, requestBody any, target any) 
 			Status:  response.StatusCode,
 			Code:    failure.Error.Code,
 			Message: failure.Error.Message,
+			Details: failure.Error.Details,
 		}
 	}
 	if target == nil {

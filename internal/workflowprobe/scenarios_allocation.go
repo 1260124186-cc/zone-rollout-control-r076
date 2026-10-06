@@ -2,6 +2,7 @@ package workflowprobe
 
 import (
 	"net/http"
+	"time"
 
 	"solo-0014-zone-rollout-control/internal/domain"
 )
@@ -36,6 +37,27 @@ func runNodeLeaseAllocation() error {
 	}
 	if replay.ID != first.ID {
 		return ensure(false, "lease request replay returned another group")
+	}
+	_, err = allocate(harness, plan.ID, "lease-request-0001", "east", 1)
+	if err := expectFailure(err, http.StatusConflict, string(domain.CodeIdempotencyConflict)); err != nil {
+		return err
+	}
+	if err := expectConflictDetails(
+		err,
+		"lease_group",
+		first.ID,
+		first.RequestFingerprint,
+		first.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"max_nodes",
+	); err != nil {
+		return err
+	}
+	replayed, err := allocate(harness, plan.ID, "lease-request-0001", "east", 2)
+	if err != nil {
+		return err
+	}
+	if replayed.ID != first.ID || len(replayed.LeaseIDs) != len(first.LeaseIDs) {
+		return ensure(false, "lease conflict created a new group")
 	}
 	_, err = allocate(harness, plan.ID, "lease-request-0002", "east", 2)
 	if err := expectFailure(err, http.StatusConflict, string(domain.CodeNodeUnavailable)); err != nil {

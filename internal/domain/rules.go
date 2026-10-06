@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -62,6 +63,23 @@ func ProbeFingerprint(leaseID string, input ProbeInput) string {
 		input.ObservedSerial,
 		input.LatencyMS,
 		input.ObservedAt.UTC().Format(time.RFC3339Nano),
+	)
+	sum := sha256.Sum256([]byte(payload))
+	return hex.EncodeToString(sum[:])
+}
+
+// AssessmentFingerprint binds an assessment request key to the evaluation
+// context it was computed from: the plan's latest revision and the set of
+// stored probes. Replaying the key after the context changed is a conflict.
+func AssessmentFingerprint(planID string, requestKey string, revisionID string, probeIDs []string) string {
+	sorted := append([]string(nil), probeIDs...)
+	sort.Strings(sorted)
+	payload := fmt.Sprintf(
+		"%s|%s|%s|%s",
+		planID,
+		requestKey,
+		revisionID,
+		strings.Join(sorted, ","),
 	)
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])

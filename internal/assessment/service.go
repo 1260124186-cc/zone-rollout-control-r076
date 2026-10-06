@@ -40,12 +40,41 @@ func (s *Service) Evaluate(
 				"state":   plan.State,
 			})
 		}
+		probes := make([]domain.Probe, 0)
+		probeIDs := make([]string, 0)
+		for _, probe := range state.Probes {
+			if probe.PlanID == planID {
+				probes = append(probes, probe)
+				probeIDs = append(probeIDs, probe.ID)
+			}
+		}
+		contextFingerprint := domain.AssessmentFingerprint(planID, input.RequestKey, plan.LatestRevisionID, probeIDs)
 		if existingID, exists := state.AssessmentRequestKeys[requestIndex]; exists {
 			existing, found := state.Assessments[existingID]
 			if !found {
 				return domain.NewError(domain.CodeStorageFailure, "assessment index is inconsistent", map[string]any{
 					"assessment_id": existingID,
 				})
+			}
+			// Assessments recorded before context binding carry no fingerprint;
+			// they remain replayable. A stored fingerprint that no longer
+			// matches means the plan's evaluation context changed under a
+			// reused request key, which is a conflict and records nothing.
+			if existing.PayloadFingerprint != "" && existing.PayloadFingerprint != contextFingerprint {
+				return domain.IdempotencyConflict(
+					"request key was reused after the plan evaluation context changed",
+					input.RequestKey,
+					domain.ConflictEntityRef{
+						Kind:   "assessment",
+						ID:     existing.ID,
+						PlanID: existing.PlanID,
+					},
+					domain.RequestDigest{
+						Digest:     existing.PayloadFingerprint,
+						RecordedAt: existing.CreatedAt,
+					},
+					domain.DiffAssessmentFields(existing, plan.LatestRevisionID, len(probeIDs)),
+				)
 			}
 			result = existing
 			return nil
@@ -61,12 +90,6 @@ func (s *Service) Evaluate(
 				"revision_id": plan.LatestRevisionID,
 			})
 		}
-		probes := make([]domain.Probe, 0)
-		for _, probe := range state.Probes {
-			if probe.PlanID == planID {
-				probes = append(probes, probe)
-			}
-		}
 		if len(probes) == 0 {
 			return domain.NewError(domain.CodeNoProbes, "plan has no probes to assess", map[string]any{
 				"plan_id": planID,
@@ -74,6 +97,7 @@ func (s *Service) Evaluate(
 		}
 		result = domain.BuildAssessment(s.ids.New("asm"), plan, revision, probes, now)
 		result.RequestKey = input.RequestKey
+		result.PayloadFingerprint = contextFingerprint
 		state.Assessments[result.ID] = result
 		state.AssessmentRequestKeys[requestIndex] = result.ID
 		plan.LatestAssessmentID = result.ID

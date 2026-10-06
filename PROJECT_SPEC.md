@@ -61,7 +61,7 @@ Zone Rollout Control 是面向 DNS 运维人员的 Go HTTP 控制面。它把区
 
 一次租约分配请求的幂等记录。
 
-- `id`、`plan_id`、`request_key`、`request_fingerprint`、`region`、`lease_ids`。
+- `id`、`plan_id`、`request_key`、`request_fingerprint`、`region`、`lease_seconds`、`max_nodes`、`lease_ids`。
 - 相同请求键和相同内容重放时返回原分配组，内容不一致时返回冲突。
 
 ### Probe
@@ -77,6 +77,7 @@ Zone Rollout Control 是面向 DNS 运维人员的 Go HTTP 控制面。它把区
 一次计划范围内的确定性一致性判定。
 
 - `id`、`plan_id`、`revision_id`、`request_key`。
+- `payload_fingerprint`：判定所依据的评估上下文（最新版本与探针集合）的指纹。
 - `verdict`：`consistent` 或 `review_required`。
 - `reasons`：稳定原因代码列表。
 - `probe_count`、`success_count`、`success_ratio`、`maximum_latency_ms`。
@@ -124,6 +125,17 @@ ready --lease--> leased --report--> ready
 - 同租约同请求键同内容重放返回原探针，不重复计数。
 - 同请求键不同载荷返回 `idempotency_conflict`。
 - 探针标识符由服务生成，客户端不能覆盖。
+
+### 幂等冲突摘要
+
+租约分配、探针登记和一致性判定共用同一套冲突语义。同内容重放始终返回原记录；请求键被不同内容复用时返回 `idempotency_conflict`(HTTP 409)，事务原样失败且不创建新事实。冲突的 `details` 在各入口保持一致结构：
+
+- `request_key`：本次请求复用的请求键。
+- `entity`：原请求关联的实体引用，包含 `kind`(`lease_group`、`probe` 或 `assessment`)、`id` 以及 `plan_id`、`lease_id` 等上级引用，均为对外 API 标识。
+- `original_request`：原请求的稳定摘要，包含单向 `digest`（记录时计算的载荷指纹）和 `recorded_at`（原请求记录时间），不泄露原载荷内容。
+- `differing_fields`：与原记录不一致的关键字段名列表（使用请求体的 JSON 字段名），只给出字段名，不给出原值。
+
+判定的请求键绑定评估上下文（计划最新版本与已存探针集合）：上下文未变时同键重放返回原判定；上下文变化后复用同键返回冲突，且不更新计划摘要。
 
 ### 一致性判定
 

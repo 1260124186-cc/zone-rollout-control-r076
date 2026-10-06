@@ -101,6 +101,8 @@ type LeaseGroup struct {
 	RequestKey         string    `json:"request_key"`
 	RequestFingerprint string    `json:"request_fingerprint"`
 	Region             string    `json:"region,omitempty"`
+	LeaseSeconds       int       `json:"lease_seconds"`
+	MaxNodes           int       `json:"max_nodes"`
 	LeaseIDs           []string  `json:"lease_ids"`
 	CreatedAt          time.Time `json:"created_at"`
 }
@@ -120,17 +122,18 @@ type Probe struct {
 }
 
 type RolloutAssessment struct {
-	ID               string    `json:"id"`
-	PlanID           string    `json:"plan_id"`
-	RevisionID       string    `json:"revision_id"`
-	RequestKey       string    `json:"request_key"`
-	Verdict          Verdict   `json:"verdict"`
-	Reasons          []string  `json:"reasons"`
-	ProbeCount       int       `json:"probe_count"`
-	SuccessCount     int       `json:"success_count"`
-	SuccessRatio     float64   `json:"success_ratio"`
-	MaximumLatencyMS int       `json:"maximum_latency_ms"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                 string    `json:"id"`
+	PlanID             string    `json:"plan_id"`
+	RevisionID         string    `json:"revision_id"`
+	RequestKey         string    `json:"request_key"`
+	PayloadFingerprint string    `json:"payload_fingerprint,omitempty"`
+	Verdict            Verdict   `json:"verdict"`
+	Reasons            []string  `json:"reasons"`
+	ProbeCount         int       `json:"probe_count"`
+	SuccessCount       int       `json:"success_count"`
+	SuccessRatio       float64   `json:"success_ratio"`
+	MaximumLatencyMS   int       `json:"maximum_latency_ms"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 type AuditEvent struct {

@@ -2,6 +2,7 @@ package workflowprobe
 
 import (
 	"net/http"
+	"time"
 
 	"solo-0014-zone-rollout-control/internal/domain"
 )
@@ -42,6 +43,23 @@ func runProbeIngestion() error {
 	_, err = submitProbe(harness, leaseID, "probe-request-0001", true, revision.Serial, 25)
 	if err := expectFailure(err, http.StatusConflict, string(domain.CodeIdempotencyConflict)); err != nil {
 		return err
+	}
+	if err := expectConflictDetails(
+		err,
+		"probe",
+		first.ID,
+		first.PayloadFingerprint,
+		first.StoredAt.UTC().Format(time.RFC3339Nano),
+		"latency_ms",
+	); err != nil {
+		return err
+	}
+	replayed, err := submitProbe(harness, leaseID, "probe-request-0001", true, revision.Serial, 12)
+	if err != nil {
+		return err
+	}
+	if replayed.ID != first.ID {
+		return ensure(false, "probe conflict stored a new probe")
 	}
 	err = harness.call(http.MethodPatch, "/v1/leases/"+leaseID+"/release", nil, nil)
 	return expectFailure(err, http.StatusConflict, string(domain.CodeInvalidState))

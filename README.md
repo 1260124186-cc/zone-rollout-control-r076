@@ -186,7 +186,7 @@ curl -sS -X PATCH http://127.0.0.1:8090/v1/plans/<plan_id>/assessments \
 - A、AAAA、CNAME 条目在写入前规范化并稳定排序，重复条目直接拒绝。
 - 节点按 `ready -> leased -> ready` 变化，隔离节点不会被选中。
 - 一个节点同一时刻最多有一个 `claimed` 租约。
-- 相同请求键和相同内容可安全重放；同键异载荷返回 `idempotency_conflict`。
+- 相同请求键和相同内容可安全重放；同键异载荷返回 `idempotency_conflict`，并在 `details` 中给出关联实体引用、原请求摘要（单向指纹与记录时间）和不一致的关键字段名，不泄露原载荷。
 - 一致性判定综合节点覆盖率、序列号、成功比例和最大延迟，返回 `consistent` 或 `review_required`。
 - 所有校验和冲突在快照替换前返回，不留下部分状态。
 

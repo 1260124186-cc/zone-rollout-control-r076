@@ -54,9 +54,20 @@ func (s *Service) Allocate(
 				})
 			}
 			if existing.RequestFingerprint != fingerprint {
-				return domain.NewError(domain.CodeIdempotencyConflict, "request key was reused with different lease parameters", map[string]any{
-					"request_key": input.RequestKey,
-				})
+				return domain.IdempotencyConflict(
+					"request key was reused with different lease parameters",
+					input.RequestKey,
+					domain.ConflictEntityRef{
+						Kind:   "lease_group",
+						ID:     existing.ID,
+						PlanID: existing.PlanID,
+					},
+					domain.RequestDigest{
+						Digest:     existing.RequestFingerprint,
+						RecordedAt: existing.CreatedAt,
+					},
+					domain.DiffLeaseFields(existing, input),
+				)
 			}
 			group = existing
 			return nil
@@ -115,6 +126,8 @@ func (s *Service) Allocate(
 			RequestKey:         input.RequestKey,
 			RequestFingerprint: fingerprint,
 			Region:             input.Region,
+			LeaseSeconds:       input.LeaseSeconds,
+			MaxNodes:           input.MaxNodes,
 			LeaseIDs:           leaseIDs,
 			CreatedAt:          now,
 		}
