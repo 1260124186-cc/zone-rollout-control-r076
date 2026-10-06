@@ -62,3 +62,33 @@ func Validation(message string, details map[string]any) *DomainError {
 func InvalidState(message string, details map[string]any) *DomainError {
 	return NewError(CodeInvalidState, message, details)
 }
+
+// RequestSummary is the stable, non-sensitive description of the stored
+// request that an idempotent replay conflicted with. It carries the stored
+// request digest and the public names of the fields that differ, never the
+// original payload values.
+type RequestSummary struct {
+	Fingerprint     string   `json:"fingerprint"`
+	DifferingFields []string `json:"differing_fields"`
+}
+
+// IdempotencyConflict builds the conflict error shared by every idempotent
+// entry point. The details always use the same shape: the reused request
+// key, the associated entity reference, and the original request summary.
+func IdempotencyConflict(
+	message string,
+	requestKey string,
+	entity string,
+	entityID string,
+	summary RequestSummary,
+) *DomainError {
+	if summary.DifferingFields == nil {
+		summary.DifferingFields = []string{}
+	}
+	return NewError(CodeIdempotencyConflict, message, map[string]any{
+		"request_key":      requestKey,
+		"entity":           entity,
+		"id":               entityID,
+		"original_request": summary,
+	})
+}

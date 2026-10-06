@@ -37,6 +37,28 @@ func runNodeLeaseAllocation() error {
 	if replay.ID != first.ID {
 		return ensure(false, "lease request replay returned another group")
 	}
+	_, err = allocate(harness, plan.ID, "lease-request-0001", "east", 1)
+	details, err := failureDetails(err, http.StatusConflict, string(domain.CodeIdempotencyConflict))
+	if err != nil {
+		return err
+	}
+	if err := checkConflictDetails(
+		details,
+		"lease-request-0001",
+		"lease_group",
+		first.ID,
+		first.RequestFingerprint,
+		[]string{"max_nodes"},
+	); err != nil {
+		return err
+	}
+	replayed, err := allocate(harness, plan.ID, "lease-request-0001", "east", 2)
+	if err != nil {
+		return err
+	}
+	if replayed.ID != first.ID {
+		return ensure(false, "lease request replay after conflict returned another group")
+	}
 	_, err = allocate(harness, plan.ID, "lease-request-0002", "east", 2)
 	if err := expectFailure(err, http.StatusConflict, string(domain.CodeNodeUnavailable)); err != nil {
 		return err

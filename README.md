@@ -187,6 +187,7 @@ curl -sS -X PATCH http://127.0.0.1:8090/v1/plans/<plan_id>/assessments \
 - 节点按 `ready -> leased -> ready` 变化，隔离节点不会被选中。
 - 一个节点同一时刻最多有一个 `claimed` 租约。
 - 相同请求键和相同内容可安全重放；同键异载荷返回 `idempotency_conflict`。
+- 幂等冲突的错误详情在租约分配、探针和判定入口保持一致：`entity` 与 `id` 指向原请求关联的实体，`original_request` 只含原请求的 `fingerprint` 摘要和 `differing_fields` 差异字段名，不泄露原始载荷内容。
 - 一致性判定综合节点覆盖率、序列号、成功比例和最大延迟，返回 `consistent` 或 `review_required`。
 - 所有校验和冲突在快照替换前返回，不留下部分状态。
 

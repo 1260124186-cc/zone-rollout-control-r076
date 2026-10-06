@@ -61,7 +61,7 @@ Zone Rollout Control 是面向 DNS 运维人员的 Go HTTP 控制面。它把区
 
 一次租约分配请求的幂等记录。
 
-- `id`、`plan_id`、`request_key`、`request_fingerprint`、`region`、`lease_ids`。
+- `id`、`plan_id`、`request_key`、`request_fingerprint`、`region`、`lease_seconds`、`max_nodes`、`lease_ids`。
 - 相同请求键和相同内容重放时返回原分配组，内容不一致时返回冲突。
 
 ### Probe
@@ -76,7 +76,7 @@ Zone Rollout Control 是面向 DNS 运维人员的 Go HTTP 控制面。它把区
 
 一次计划范围内的确定性一致性判定。
 
-- `id`、`plan_id`、`revision_id`、`request_key`。
+- `id`、`plan_id`、`revision_id`、`request_key`、`request_fingerprint`。
 - `verdict`：`consistent` 或 `review_required`。
 - `reasons`：稳定原因代码列表。
 - `probe_count`、`success_count`、`success_ratio`、`maximum_latency_ms`。
@@ -124,6 +124,12 @@ ready --lease--> leased --report--> ready
 - 同租约同请求键同内容重放返回原探针，不重复计数。
 - 同请求键不同载荷返回 `idempotency_conflict`。
 - 探针标识符由服务生成，客户端不能覆盖。
+
+### 幂等冲突详情
+
+- 租约分配、探针和判定的同键异载荷冲突使用一致的错误详情形状：`request_key`、`entity` 与 `id`（原请求关联的实体引用），以及 `original_request` 摘要。
+- `original_request` 只包含原请求的 `fingerprint` 摘要和 `differing_fields` 差异字段名，不返回原始载荷值或内部标识。
+- 冲突在事务内任何变更之前返回，不创建新事实；同内容重放行为保持不变。
 
 ### 一致性判定
 

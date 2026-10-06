@@ -28,6 +28,7 @@ func (s *Service) Evaluate(
 	}
 	now := s.clock.Now().UTC()
 	requestIndex := planID + "\x00" + input.RequestKey
+	fingerprint := domain.AssessmentFingerprint(planID, input)
 	var result domain.RolloutAssessment
 	err := s.store.Write(ctx, func(state *domain.State) error {
 		plan, ok := state.Plans[planID]
@@ -46,6 +47,18 @@ func (s *Service) Evaluate(
 				return domain.NewError(domain.CodeStorageFailure, "assessment index is inconsistent", map[string]any{
 					"assessment_id": existingID,
 				})
+			}
+			if existing.RequestFingerprint != "" && existing.RequestFingerprint != fingerprint {
+				return domain.IdempotencyConflict(
+					"request key was reused with different assessment parameters",
+					input.RequestKey,
+					"assessment",
+					existing.ID,
+					domain.RequestSummary{
+						Fingerprint:     existing.RequestFingerprint,
+						DifferingFields: []string{},
+					},
+				)
 			}
 			result = existing
 			return nil
@@ -74,6 +87,7 @@ func (s *Service) Evaluate(
 		}
 		result = domain.BuildAssessment(s.ids.New("asm"), plan, revision, probes, now)
 		result.RequestKey = input.RequestKey
+		result.RequestFingerprint = fingerprint
 		state.Assessments[result.ID] = result
 		state.AssessmentRequestKeys[requestIndex] = result.ID
 		plan.LatestAssessmentID = result.ID

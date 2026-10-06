@@ -44,6 +44,9 @@ func runConsistencyAssessment() error {
 	if consistent.Verdict != domain.VerdictConsistent || consistent.ProbeCount != 2 {
 		return ensure(false, "consistent assessment did not include both probes")
 	}
+	if consistent.RequestFingerprint == "" {
+		return ensure(false, "assessment did not record the request fingerprint")
+	}
 	var replay domain.RolloutAssessment
 	if err := harness.call(http.MethodPatch, "/v1/plans/"+plan.ID+"/assessments", domain.AssessmentInput{
 		RequestKey: "assess-request-0001",
@@ -53,12 +56,24 @@ func runConsistencyAssessment() error {
 	if replay.ID != consistent.ID {
 		return ensure(false, "assessment replay returned another result")
 	}
+	if replay.RequestFingerprint != consistent.RequestFingerprint {
+		return ensure(false, "assessment replay did not preserve the request fingerprint")
+	}
 	var latest domain.RolloutAssessment
 	if err := harness.call(http.MethodGet, "/v1/plans/"+plan.ID+"/assessments/latest", nil, &latest); err != nil {
 		return err
 	}
 	if latest.ID != consistent.ID {
 		return ensure(false, "latest assessment does not match")
+	}
+	var distinct domain.RolloutAssessment
+	if err := harness.call(http.MethodPatch, "/v1/plans/"+plan.ID+"/assessments", domain.AssessmentInput{
+		RequestKey: "assess-request-0002",
+	}, &distinct); err != nil {
+		return err
+	}
+	if distinct.ID == consistent.ID {
+		return ensure(false, "a different request key must create a new assessment")
 	}
 
 	reviewPlan, reviewRevision, err := createActivePlan(harness, "review.example", 4001, 1, 1, 20)

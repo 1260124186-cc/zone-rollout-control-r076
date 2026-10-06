@@ -67,6 +67,55 @@ func ProbeFingerprint(leaseID string, input ProbeInput) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func AssessmentFingerprint(planID string, input AssessmentInput) string {
+	payload := fmt.Sprintf(
+		"%s|%s",
+		planID,
+		input.RequestKey,
+	)
+	sum := sha256.Sum256([]byte(payload))
+	return hex.EncodeToString(sum[:])
+}
+
+// LeaseRequestDiff lists the public request fields whose values differ
+// between the stored allocation request and the incoming one. Both sides
+// must already be normalized the same way the fingerprint sees them.
+func LeaseRequestDiff(stored LeaseGroup, input LeaseInput) []string {
+	fields := make([]string, 0, 3)
+	if stored.Region != input.Region {
+		fields = append(fields, "region")
+	}
+	if stored.LeaseSeconds != input.LeaseSeconds {
+		fields = append(fields, "lease_seconds")
+	}
+	if stored.MaxNodes != input.MaxNodes {
+		fields = append(fields, "max_nodes")
+	}
+	return fields
+}
+
+// ProbeRequestDiff lists the public request fields whose values differ
+// between the stored probe and the incoming one.
+func ProbeRequestDiff(stored Probe, input ProbeInput) []string {
+	fields := make([]string, 0, 5)
+	if stored.RequestKey != input.RequestKey {
+		fields = append(fields, "request_key")
+	}
+	if stored.Success != input.Success {
+		fields = append(fields, "success")
+	}
+	if stored.ObservedSerial != input.ObservedSerial {
+		fields = append(fields, "observed_serial")
+	}
+	if stored.LatencyMS != input.LatencyMS {
+		fields = append(fields, "latency_ms")
+	}
+	if !stored.ObservedAt.Equal(input.ObservedAt.UTC()) {
+		fields = append(fields, "observed_at")
+	}
+	return fields
+}
+
 func BuildAssessment(
 	id string,
 	plan RolloutPlan,

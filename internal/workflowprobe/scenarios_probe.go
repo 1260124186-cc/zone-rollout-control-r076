@@ -40,8 +40,26 @@ func runProbeIngestion() error {
 		return ensure(false, "probe replay returned a different item")
 	}
 	_, err = submitProbe(harness, leaseID, "probe-request-0001", true, revision.Serial, 25)
-	if err := expectFailure(err, http.StatusConflict, string(domain.CodeIdempotencyConflict)); err != nil {
+	details, err := failureDetails(err, http.StatusConflict, string(domain.CodeIdempotencyConflict))
+	if err != nil {
 		return err
+	}
+	if err := checkConflictDetails(
+		details,
+		"probe-request-0001",
+		"probe",
+		first.ID,
+		first.PayloadFingerprint,
+		[]string{"latency_ms"},
+	); err != nil {
+		return err
+	}
+	replayed, err := submitProbe(harness, leaseID, "probe-request-0001", true, revision.Serial, 12)
+	if err != nil {
+		return err
+	}
+	if replayed.ID != first.ID {
+		return ensure(false, "probe replay after conflict returned a different item")
 	}
 	err = harness.call(http.MethodPatch, "/v1/leases/"+leaseID+"/release", nil, nil)
 	return expectFailure(err, http.StatusConflict, string(domain.CodeInvalidState))
